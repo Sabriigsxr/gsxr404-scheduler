@@ -47,11 +47,16 @@ class ConfigLoader {
         .map(line => line.trim())
         .filter(line => line && !line.startsWith('#'))
         .map(line => {
-          const [name, url] = line.split(',');
+          const rawNameUrl = line.split(',');
+          const rawName = rawNameUrl[0]?.trim() || '';
+          // strip
+          const name = rawNameUrl.length > 1
+            ? rawName.replace(/^\d+\.\s*/, '') // 1. Carrier Name → Carrier Name
+            : rawName;
           return {
-            name: name ? name.trim() : null,
-            url: url ? url.trim() : null,
-            displayName: this._buildDisplayName(name ? name.trim() : 'Unknown')
+            name: name || null,
+            url: (rawNameUrl[1] || rawNameUrl[0] || '').trim() || null,
+            displayName: this._buildDisplayName(name)
           };
         })
         .filter(c => c.name && c.url);
