@@ -1,361 +1,387 @@
-# GSXR404 — Shipping Schedule Aggregator
+# GSXR404 — Shipping Schedule Aggregator v2.0.0
 
-> **[GSXR 404]** — Glitched.
+> **Web Server Edition** — Rest API-based shipping schedule aggregator with retro terminal UI
 
-A stealth-based web scraper for discovering shipping schedules from major and niche carriers. Features a terminal-style green-on-black UI and outputs results into a stylized PDF.
-
----
-
-## Project Overview
-
-GSXR404 (Glitched Stealth Xenon Rapid 404) is a production-ready Node.js shipping schedule aggregator designed to bypass modern anti-bot protections (Cloudflare, DataDome, Akamai) while providing a clean terminal interface and terminal-styled PDF output.
+A stealth-based web scraper for discovering shipping schedules from major and niche carriers. Features a green-on-black web dashboard and outputs results into stylized PDFs, CSV, and JSON exports.
 
 ---
 
-## System Architecture
+## ⚡ Quick Start (Web Version)
 
-```
-┌───────────────────────────────────────────────────────────────────┐
-│                          GSXR404 Core                               │
-├───────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐   │
-│  │  Config Loader │───▶│Stealth Parser │───▶│Data Pipeline  │   │
-│  │ config-loader ◀────│stealth-scraper│────│data-pipeline  │   │
-│  │   .js          │   │ .js           │   │  .js           │   │
-│  └───────────────┘   └───────────────┘    └───────────────┘   │
-│          │                   │                   │               │
-│          ▼                   ▼                   ▼               │
-│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐   │
-│  │settings.json  │    │  Playwright  │    │  pdf-gen.js   │   │
-│  │ports.json     │    │ + Chromium   │    │  (jsPDF)      │   │
-│  │lines.txt      │    │ + Stealth    │    │               │   │
-│  └───────────────┘    └───────────────┘    └───────────────┘   │
-│                                                            │    │
-├───────────────────────────────────────────────────────────+────┤
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ Terminal UI                                                │   │
-│  │ • ASCII Glitch Logo                                        │   │
-│  │ • Autocomplete POL/POD                                      │   │
-│  │ • Real-time Progress Output                                  │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                     │
-└───────────────────────────────────────────────────────────────────┘
-```
+```bash
+# 1. Install dependencies
+npm install
+npm run install-browser
 
-**Data Flow:**
-1. **ConfigLoader** loads `config/settings.json`, `data/ports.json`, and `data/lines.txt`
-2. **StealthScraper** uses a Playwright-headed browser with fingerprint spoofing
-3. **DataPipeline** applies cleaning: port standardization, deduplication, and sorting
-4. **TerminalUI** renders progress and statistics in real-time
-5. **PDFGenerator** creates a green-on-black landscape PDF with carrier groupings
+# 2. Start web server
+npm start
 
----
-
-## File Structure
-
-```
-gsxr404/
-├── config/
-│   └── settings.json          # Hardcoded parameters (time window, containers)
-├── data/
-│   ├── ports.json             # Port name variants → standard name mapping
-│   └── lines.txt              # CarrierName, URL format
-├── src/
-│   ├── index.js               # Main entry — orchestrates pipeline
-│   ├── utils/
-│   │   └── config-loader.js   # Parses JSON/TXT, standardizes ports
-│   ├── scrapers/
-│   │   └── stealth-scraper.js  # Playwright + Stealth extraction engine
-│   ├── pipeline/
-│   │   └── data-pipeline.js    # Clean → Sort → Calculate transit
-│   └── frontend/
-│       ├── terminal-ui.js      # GLITCH logo, autocomplete, progress
-│       └── pdf-generator.js    # jsPDF green-on-black PDF
-├── output/                     # Generated PDF and CSV/JSON exports
-├── logs/                       # Application logs
-└── package.json
+# 3. Open browser
+http://localhost:3000
 ```
 
 ---
 
-## Core Components
+## 🌐 Web API Endpoints
 
-### 1. ConfigLoader (`src/utils/config-loader.js`)
+### Core Scraping
 
-```
-new ConfigLoader(basePath)
-  .loadSettings()       // parses config/settings.json
-  .loadPorts()           // parses data/ports.json
-  .loadCarriers()        // parses data/lines.txt
-  .standardizePort(name) // "Rott.", "Rotterdam NL", "NLRTM" → "Rotterdam"
-  .getSailingDateWindow() // ISO-formats date range based on timeWindowDays
-  .getSummary()          // quick stats overview
+**POST** `/api/scraper/init` - Initialize Playwright browser
+```bash
+curl -X POST http://localhost:3000/api/scraper/init
 ```
 
-| Method | Behavior |
-|--------|---------|
-| `loadPorts()` | Parses all variant → standard mapping |
-| `standardizePort(raw)` | Case-insensitive lookup through all variants |
-| `getSailingDateWindow()` | Returns `{ start, end, days }` for form queries |
-| `getSummary()` | Returns loaded counts and active windowDays |
-
-**Response:** `config-data-loaded` always, with fallback defaults.
-
----
-
-### 2. StealthScraper (`src/scrapers/stealth-scraper.js`)
-
-```
-const scraper = new StealthScraper(configLoader);
-await scraper.init();                        // Launches Chromium with stealth args
-const { voyages, stats } = await scraper     // Iterates carriers, retries on failure
-  .scrapeAll(standardizedPOL, standardizedPOD);
+**POST** `/api/scrape` - Execute scrape with POL/POD
+```bash
+curl -X POST http://localhost:3000/api/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"pol": "Rotterdam", "pod": "Shanghai"}'
 ```
 
-**Stealth Protection Stack:**
-
-```js
-// Anti-bot fingerprint bypass via Playwright initScript
-await context.addInitScript(() => {
-  Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-  window.challengeTimeout = 120000;
-});
-
-// Chromium launch arguments
-'--no-sandbox',
-'--disable-setuid-sandbox',
-'--disable-dev-shm-usage',
-'--disable-web-security',
-'--disable-features=IsolateOrigins,site-per-process',
-'--disable-blink-features=AutomationControlled'
-```
-
-**Carrier-Specific Adapters:** Each carrier gets its own `_scrape<Carrier>` method. The current implementation ships adapters for:
-- **Maersk**, **MSC**, **CMA CGM**, **Hapag-Lloyd**, **COSCO**, **ONE**, **Evergreen**
-- Additional adapters use `_scrapeGeneric()` — DOM-based table extraction with flexible cell labeling
-
-**Per-Carrier Scrape Flow:**
-```
-1. navigate(carrier.url) [networkidle]
-2. populate POL/POD fields via selectors
-3. submit search
-4. wait for results table
-5. extract rows → voyage objects
-6. filter by 30-day ETD window
-```
-
----
-
-### 3. DataPipeline (`src/pipeline/data-pipeline.js`)
-
-```
-const pipeline = new DataPipeline(configLoader);
-pipeline.load(rawVoyages)
-  .clean()    // returns cleaned array
-  .sort()     // in-place sort by carrier volume, then ETD asc
-  .getStats() // cleaning statistics
-```
-
-| Stage | Operation |
-|-------|-----------|
-| `_standardizeRecord()` | Normalizes vesselName, IMO, pol, pod using configLoader |
-| `_filterDateWindow()` | Keeps only voyages within `timeWindowDays` of today |
-| `_filterContainers()` | No-op when container list is empty |
-| `_deduplicate()` | Case-insensitive key: `carrier\|vesselName\|imo\|etd\|pol\|pod` |
-| `_computeTransitTimes()` | `Math.round((ETA - ETD) / msPerDay)` if missing |
-
-**Carrier Volume Sorting:**
-```
-1. Count voyages per carrier
-2. Sort carriers by count desc
-3. Within each carrier, sort by ETD asc
-```
-
----
-
-### 4. TerminalUI (`src/frontend/terminal-ui.js`)
-
-- **ASCII Glitch Logo** — Animated character-by-character output on startup
-- **Port Autocomplete** — Filters `ports.json` variants on each keystroke
-- **Progress Monitor** — Real-time progress bars and suspense-style counter
-
-**Integration with Readline:**
-```js
-const ui = new TerminalUI(configLoader);
-const { pol, pod } = await ui.runPromptCycle();
-```
-
-Output format:
-```
-╔════════════════════════════════════════════════╗
-║   S  H  I  P  P  I  N  G   S  C  H  E  D  U  L  E ║
-║         R    4     0     4                     ║
-╚════════════════════════════════════════════════╝
-
-> Enter POL (port of loading) [Rotterdam, Hamburg...]:
-> Enter POD (port of discharge) [Barcelona, Antwerp...]:
-```
-
----
-
-### 5. PDFGenerator (`src/frontend/pdf-pdf.js`)
-
-```js
-const pdfGen = new PDFGenerator(configLoader);
-const pdfPath = pdfGen.generate(recordsByCarrier, stats);
-```
-
-**Terminal PDF Spec:**
-| Property | Value |
-|----------|-------|
-| Background | Black (`#000000`) |
-| Text | Green (`#00FF00`) on black |
-| Font | Courier New, 8pt |
-| Columns | CARR, VESSEL, IMO, VOYAGE, POL, POD, ETD, ETA, TT |
-| Border | Dark grey (`#1a1a1a`), 0.2pt |
-| Footer | `CONFIDENTIAL — GSXR404 OUTPUT` |
-
-Artifact path: `output/gsxr404_schedule_<timestamp>.pdf`
-
----
-
-## Integration Guide
-
-### Connect Local File System → Scraper Engine
-
-**Hot-Reload on File Changes:**
-
-Update `config-loader.js` (already supports it):
-
-```js
-// config-loader.js already exposes reload() method:
-const config = new ConfigLoader();
-config.reload(); // re-read ports.json, lines.txt, settings.json
-```
-
-**Watched Files → Live Auto-Refresh:**
-
-Add a file watcher in `src/index.js`:
-
-```js
-const fs = require('fs');
-const chokidar = require('chokidar');
-
-// Auto-reload on file change
-const watchPaths = [
-  path.join(__base, 'config', 'settings.json'),
-  path.join(__base, 'data', '*.json'),
-  path.join(__base, 'data', '*.txt')
-];
-chokidar.watch(watchPaths)
-  .on('change', () => {
-    console.log('[GSXR404] Config changed, reloading...');
-    config.reload();
-  });
-```
-
-**Adding a New Carrier:**
-
-Edit `data/lines.txt`:
-```
-YourCarrier Name,https://yourcarrier.com/schedules/sailing-schedules
-```
-
-Then add a `_scrapeYourCarrier` method in `stealth-scraper.js`:
-
-```js
-async _scrapeYourCarrier(carrier) {
-  const page = this.page;
-  await page.goto(carrier.url, { waitUntil: 'networkidle', timeout: 25000 });
-  // Populate search form...
-  // Extract table rows...
-  return [/* voyage objects */];
+Response:
+```json
+{
+  "success": true,
+  "route": {"pol": "Rotterdam", "pod": "Shanghai"},
+  "voyages": [...],
+  "stats": {...},
+  "carriersCount": 7,
+  "voyagesCount": 142
 }
 ```
 
-**Adding a New Port:**
+### Results & Export
 
-Add to `data/ports.json`:
-```json
-"YourPort Standard": ["YourPort", "YPORT", "YourPort abbreviation"]
-```
-
-The addition is **immediately available** via `configLoader.standardizePort("YPORT")`.
-
----
-
-## Usage
-
+**GET** `/api/results` - Retrieve last scrape results
 ```bash
-# Install dependencies
-npm install
+curl http://localhost:3000/api/results
+```
 
-# Install Playwright browser (one-time)
-npx playwright install chromium
+**POST** `/api/export/pdf` - Generate PDF report
+```bash
+curl -X POST http://localhost:3000/api/export/pdf
+```
 
-# Interactive mode (prompts for POL/POD)
-npm start
+**POST** `/api/export/csv` - Export as CSV
+```bash
+curl -X POST http://localhost:3000/api/export/csv
+```
 
-# CLI mode (omit interactive prompts)
-node src/index.js ROTTERDAM HAMBURG
+**POST** `/api/export/json` - Export as JSON
+```bash
+curl -X POST http://localhost:3000/api/export/json
+```
 
-# List all standardized ports
-node src/index.js --list-ports
+### Configuration
 
-# List all carriers
-node src/index.js --list-carriers
+**GET** `/api/ports` - List available ports
+```bash
+curl http://localhost:3000/api/ports
+```
 
-# Export CSV
-node src/index.js ROTTERDAM HAMBURG --export-csv
+Response:
+```json
+{
+  "success": true,
+  "ports": ["Rotterdam", "Hamburg", "Shanghai", ...],
+  "count": 150
+}
+```
 
-# Export JSON
-node src/index.js ROTTERDAM HAMBURG --export-json
+**GET** `/api/carriers` - List configured carriers
+```bash
+curl http://localhost:3000/api/carriers
+```
+
+Response:
+```json
+{
+  "success": true,
+  "carriers": [
+    {"name": "maersk", "displayName": "Maersk", "url": "..."},
+    {"name": "msc", "displayName": "MSC", "url": "..."}
+  ],
+  "count": 7
+}
+```
+
+### System
+
+**GET** `/api/health` - Check server status
+```bash
+curl http://localhost:3000/api/health
+```
+
+**POST** `/api/scraper/close` - Shutdown browser
+```bash
+curl -X POST http://localhost:3000/api/scraper/close
 ```
 
 ---
 
-## Environment Variables
+## 📊 Project Structure
+
+```
+gsxr404-scheduler/
+├── src/
+│   ├── server.js                 # Express web server (NEW)
+│   ├── index.js                  # Legacy CLI entry (deprecated)
+│   ├── utils/
+│   │   └── config-loader.js      # Config manager
+│   ├── scrapers/
+│   │   └── stealth-scraper.js    # Playwright stealth engine
+│   ├── pipeline/
+│   │   └── data-pipeline.js      # Data processing
+│   └── frontend/
+│       ├── terminal-ui.js        # Legacy UI
+│       └── pdf-generator.js      # PDF generation
+├── public/
+│   └── index.html                # Web dashboard (NEW)
+├── config/
+│   └── settings.json             # Global settings
+├── data/
+│   ├── ports.json                # Port mappings
+│   └── lines.txt                 # Carrier URLs
+├── output/                       # Generated files
+├── package.json                  # v2.0.0
+└── README.md
+```
+
+---
+
+## 🎨 Web Dashboard Features
+
+- **Green-on-Black Terminal Theme** - Retro 80s aesthetic
+- **Real-time Status** - Server & scraper indicators
+- **Port Autocomplete** - 150+ ports with instant matching
+- **Live Results** - Tabular voyage data display
+- **One-Click Exports** - PDF, CSV, JSON
+- **Carrier Selection** - View all configured carriers
+- **Responsive Design** - Desktop & mobile compatible
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GSXR404_HOME` | Override project root path | `./` |
-| `GSXR404_HEADFUL=1` | Disable headless mode (debug) | headless |
-| `GSXR404_SLOW=1` | Enable debug slow-mo on browser | disabled |
+| `PORT` | HTTP server port | `3000` |
+| `GSXR404_HOME` | Override project root | `./` |
+| `GSXR404_HEADFUL=1` | Disable headless mode | headless |
+| `GSXR404_SLOW=1` | Slow motion debug | disabled |
+
+### Settings
+
+Edit `config/settings.json`:
+```json
+{
+  "timeWindowDays": 30,
+  "containerTypes": ["Dry", "Reefer", "Tank"],
+  "containerSizes": ["20ft", "40ft", "45ft"]
+}
+```
+
+### Ports
+
+Edit `data/ports.json`:
+```json
+{
+  "Rotterdam": ["Rotterdam", "NLRTM", "Rotterdam NL", "Rott."],
+  "Shanghai": ["Shanghai", "CNSHA", "Shanghai CN"]
+}
+```
+
+### Carriers
+
+Edit `data/lines.txt`:
+```
+Maersk,https://www.maersk.com/schedules
+MSC,https://www.msc.com/en/sailing-schedules
+CMA CGM,https://www.cma-cgm.com/sailing-schedules
+```
 
 ---
 
-## API Response Shape
+## 📈 API Response Shape
 
-Each voyage record follows this schema:
-
+Each voyage record contains:
 ```json
 {
   "carrier": "Maersk",
   "carrierDisplayName": "MAERSK",
-  "vesselName": "MSC AMELIA",
+  "vesselName": "MAERSK ESSEX",
   "imo": "9854321",
   "voyageNo": "235W",
   "pol": "Rotterdam",
-  "pod": "Hamburg",
+  "pod": "Shanghai",
   "etd": "2026-06-01",
-  "eta": "2026-06-03",
-  "transitTimeDays": 2,
+  "eta": "2026-07-03",
+  "transitTime": 32,
   "containerSizes": ["20ft", "40ft", "45ft"],
   "containerTypes": ["Dry", "Reefer"],
-  "scrapedAt": "ISO string",
+  "scrapedAt": "2026-05-16T22:00:00Z",
   "sourceUrl": "https://..."
 }
 ```
 
 ---
 
-## License
+## 🚀 Deployment
+
+### Local Development
+```bash
+npm start
+# Server runs on http://localhost:3000
+```
+
+### Production (Docker Example)
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY . .
+RUN npm install && npm run install-browser
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+Build & run:
+```bash
+docker build -t gsxr404 .
+docker run -p 3000:3000 gsxr404
+```
+
+### Environment Setup
+
+**On Linux/Mac:**
+```bash
+export PORT=3000
+export GSXR404_HEADFUL=1
+npm start
+```
+
+**On Windows (PowerShell):**
+```powershell
+$env:PORT = 3000
+$env:GSXR404_HEADFUL = 1
+npm start
+```
+
+---
+
+## 🔐 Security Notes
+
+- Runs on `localhost:3000` by default (local-only)
+- No authentication configured (add your own middleware)
+- Browser processes are headless by default
+- No external API calls except to carrier websites
+- PDF/CSV/JSON exports stored in `./output/`
+
+---
+
+## 📝 Changelog
+
+### v2.0.0 (Web Edition)
+- ✨ Express.js REST API server
+- ✨ Modern web dashboard with green-on-black theme
+- ✨ Real-time port autocomplete
+- ✨ One-click exports (PDF, CSV, JSON)
+- ✨ API health checks & status indicators
+- 🗑️ Removed CLI menu system
+- 🗑️ Removed agent loop
+- 🗑️ Removed interactive readline prompts
+
+### v1.0.0 (Original)
+- Terminal UI with glitch logo
+- Interactive CLI menu
+- Playwright stealth scraper
+- PDF/CSV exports
+
+---
+
+## 🛠️ Advanced Usage
+
+### Programmatic API
+
+```javascript
+const fetch = require('node-fetch');
+
+async function scrapeShippingSchedule() {
+  // 1. Initialize
+  await fetch('http://localhost:3000/api/scraper/init', { method: 'POST' });
+
+  // 2. Run scrape
+  const res = await fetch('http://localhost:3000/api/scrape', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pol: 'Rotterdam', pod: 'Shanghai' })
+  });
+
+  const data = await res.json();
+  console.log(`Found ${data.voyagesCount} voyages`);
+
+  // 3. Export
+  await fetch('http://localhost:3000/api/export/pdf', { method: 'POST' });
+
+  // 4. Shutdown
+  await fetch('http://localhost:3000/api/scraper/close', { method: 'POST' });
+}
+
+scrapeShippingSchedule();
+```
+
+### Custom Port Mapping
+
+Add to `data/ports.json`:
+```json
+{
+  "Custom Port": ["Custom", "CUSTOM", "CUST", "Alias"]
+}
+```
+
+Immediately available via autocomplete & API.
+
+---
+
+## 📦 Dependencies
+
+| Package | Purpose | Version |
+|---------|---------|---------|
+| `express` | Web framework | ^4.18.2 |
+| `cors` | Cross-origin requests | ^2.8.5 |
+| `playwright` | Browser automation | ^1.40.0 |
+| `jspdf` | PDF generation | ^2.5.1 |
+| `chokidar` | File watching | ^3.5.3 |
+
+---
+
+## 🐛 Troubleshooting
+
+### Port Already in Use
+```bash
+# Change port
+PORT=3001 npm start
+```
+
+### Browser Won't Launch
+```bash
+npm run install-browser
+GSXR404_HEADFUL=1 npm start
+```
+
+### No Results
+- Check POL/POD spelling
+- Verify carriers in `data/lines.txt`
+- Check `timeWindowDays` in `config/settings.json`
+
+---
+
+## 📄 License
 
 MIT
 
 ---
 
 *GSXR404 — Glitched Stealth Xenon Rapid 404*  
-v1.0.0 | 2026
+Web Edition v2.0.0 | 2026
