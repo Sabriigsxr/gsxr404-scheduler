@@ -1,0 +1,29 @@
+{
+  "name": "gsxr404-scheduler",
+  "version": "1.0.0",
+  "description": "Stealth-based shipping schedule aggregator with terminal UI and PDF output",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "scrape": "node src/index.js",
+    "scrape:dev": "npx playwright install chromium && node src/index.js",
+    "lint": "eslint src/",
+    "typecheck": "echo \"No TypeScript configured\"",
+    "test": "echo \"No tests configured yet\"",
+    "clean": "rem /q output\\*.pdf 2>nul; echo done",
+    "dev": "node src/index.js --config ./config"
+  },
+  "keywords": [
+    "shipping",
+    "maritime",
+    "schoner",
+    "stealth",
+    "cargo",
+    "freight",
+    "aggregator",
+    "playwright",
+    "pdf"
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,45 @@
+# GSXR404 - Shipping Schedule Aggregator
+# Node.js | Playwright | jsPDF | Terminal UI (80s retro amber)
+
+# -- Dependencies --------------------------------------------------------------
+node_modules/
+.pnp/
+.pnp.js
+
+# -- Build / Cache -------------------------------------------------------------
+.cache/
+*.log
+*.tsbuildinfo
+
+# -- OS / Editor ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.orig
+
+# -- Environment / secrets -----------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# -- Output --------------------------------------------------------------------
+output/
+!output/.gitkeep
+*.pdf
+*.csv
+
+# -- Logs ----------------------------------------------------------------------
+logs/
+*.log
+
+# -- Playwright binaries -------------------------------------------------------
+playwright-report/
+test-results/
+
+# -- Temporary files -----------------------------------------------------------
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo

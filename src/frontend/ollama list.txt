@@ -1,0 +1,4 @@
+ollama list
+ollama pull nemomix-local
+ollama run nemomix-local "Hello"
+

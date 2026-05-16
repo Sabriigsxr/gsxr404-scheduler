@@ -1,0 +1,47 @@
+{
+  "scraper": {
+    "timeWindowDays": 30,
+    "requestTimeoutMs": 30000,
+    "maxRetries": 3,
+    "retryDelayMs": 2000,
+    "concurrentScrapers": 3,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  },
+  "containers": {
+    "sizes": ["20ft", "40ft", "45ft"],
+    "types": ["Dry", "Reefer"]
+  },
+  "browser": {
+    "headless": true,
+    "stealth": true,
+    "viewport": { "width": 1920, "height": 1080 },
+    "args": [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-web-security",
+      "--disable-features=IsolateOrigins,site-per-process",
+      "--disable-blink-features=AutomationControlled"
+    ]
+  },
+  "pdf": {
+    "backgroundColor": "#000000",
+    "textColor": "#00FF00",
+    "fontFamily": "Courier New",
+    "fontSize": 8,
+    "borderColor": "#1a1a1a",
+    "marginTop": 20,
+    "marginBottom": 20,
+    "marginLeft": 15,
+    "marginRight": 15
+  },
+  "output": {
+    "directory": "./output",
+    "format": "pdf",
+    "includeTimestamp": true
+  },
+  "logging": {
+    "level": "info",
+    "file": "./logs/gsxr404.log"
+  }
+}
