@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GSXR404 — Shipping Schedule Aggregator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background-color: #000000;
+      color: #00ff00;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 20px;
+      border: 2px solid #00ff00;
+      background-color: #001100;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 2.5em;
+      letter-spacing: 3px;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px #00ff00;
+      animation: glitch 0.3s infinite;
+    }
+
+    @keyframes glitch {
+      0%, 100% { text-shadow: 0 0 10px #00ff00; }
+      50% { text-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00; }
+    }
+
+    .subtitle {
+      color: #00cc00;
+      font-size: 0.9em;
+      margin-bottom: 10px;
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 20px;
+      margin-top: 15px;
+      font-size: 0.85em;
+      padding-top: 15px;
+      border-top: 1px solid #00ff00;
+      flex-wrap: wrap;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #ff0000;
+      animation: pulse 2s infinite;
+    }
+
+    .status-indicator.active {
+      background-color: #00ff00;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 1; }
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      border: 1px solid #00ff00;
+      background-color: #001100;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+    }
+
+    .panel h2 {
+      margin-bottom: 15px;
+      font-size: 1.3em;
+      text-decoration: underline;
+      color: #00ff00;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9em;
+      color: #00cc00;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      background-color: #000000;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+      border-color: #00ff00;
+    }
+
+    input::placeholder {
+      color: #006600;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #00ff00;
+      color: #000000;
+      border: 1px solid #00ff00;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      background-color: #00cc00;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+    }
+
+    button:disabled {
+      background-color: #333333;
+      color: #666666;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .button-group button {
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .results-panel {
+      grid-column: 1 / -1;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .voyage-card {
+      border: 1px solid #00cc00;
+      padding: 12px;
+      background-color: #000000;
+      font-size: 0.8em;
+    }
+
+    .voyage-card strong {
+      color: #00ff00;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .voyage-card p {
+      margin: 3px 0;
+      color: #00cc00;
+    }
+
+    .voyage-card .meta {
+      color: #006600;
+      font-size: 0.75em;
+      margin-top: 8px;
+      border-top: 1px solid #003300;
+      padding-top: 5px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .stat-box {
+      border: 1px solid #00ff00;
+      padding: 15px;
+      background-color: #000000;
+      text-align: center;
+    }
+
+    .stat-box .number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #00ff00;
+    }
+
+    .stat-box .label {
+      font-size: 0.8em;
+      color: #006600;
+      margin-top: 5px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #00ff00;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .message {
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid #00ff00;
+      display: none;
+    }
+
+    .message.active {
+      display: block;
+    }
+
+    .message.success {
+      background-color: #001100;
+      color: #00ff00;
+    }
+
+    .message.error {
+      background-color: #110000;
+      color: #ff0000;
+      border-color: #ff0000;
+    }
+
+    .message.info {
+      background-color: #001111;
+      color: #00ffff;
+      border-color: #00ffff;
+    }
+
+    .export-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .export-buttons button {
+      flex: 1;
+    }
+
+    .divider {
+      border-top: 1px solid #00ff00;
+      margin: 20px 0;
+    }
+
+    .no-data {
+      padding: 20px;
+      text-align: center;
+      color: #006600;
+      font-style: italic;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      margin-top: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85em;
+    }
+
+    table th {
+      background-color: #001100;
+      color: #00ff00;
+      padding: 10px;
+      border: 1px solid #00ff00;
+      text-align: left;
+    }
+
+    table td {
+      padding: 8px;
+      border: 1px solid #003300;
+      color: #00cc00;
+    }
+
+    table tr:nth-child(even) {
+      background-color: #000000;
+    }
+
+    table tr:hover {
+      background-color: #001100;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: #006600;
+      font-size: 0.8em;
+      border-top: 1px solid #00ff00;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>╔═ GSXR404 ═╗</h1>
+      <div class="subtitle">Shipping Schedule Aggregator · v2.0.0 Web Edition</div>
+      <div class="status-bar">
+        <div class="status-item">
+          Server: <span class="status-indicator active"></span> <span id="serverStatus">Connected</span>
+        </div>
+        <div class="status-item">
+          Scraper: <span class="status-indicator" id="scraperIndicator"></span> <span id="scraperStatus">Idle</span>
+        </div>
+      </div>
+    </header>
+
+    <div id="message" class="message"></div>
+
+    <div class="main-grid">
+      <!-- Scraper Control Panel -->
+      <div class="panel">
+        <h2>Scraper Control</h2>
+        
+        <div class="form-group">
+          <label for="polInput">Port of Loading (POL)</label>
+          <input 
+            type="text" 
+            id="polInput" 
+            placeholder="e.g., Rotterdam, Hamburg, Singapore"
+            autocomplete="off"
+          >
+          <div id="polSuggestions" style="margin-top: 5px;"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="podInput">Port of Discharge (POD)</label>
+          <input 
+            type="text" 
+            id="podInput" 
+            placeholder="e.g., Shanghai, Bangkok, Los Angeles"
+            autocomplete="off"
+          >
+          <div id="podSuggestions" style="margin-top: 5px;"></div>
+        </div>
+
+        <div class="button-group">
+          <button id="initBtn" onclick="initScraper()">Initialize</button>
+          <button id="scrapeBtn" onclick="runScrape()">Scrape</button>
+          <button id="closeBtn" onclick="closeScraper()">Close</button>
+        </div>
+
+        <div id="loadingMsg" class="loading">
+          <div class="spinner">⟳</div> Processing...
+        </div>
+      </div>
+
+      <!-- Configuration Panel -->
+      <div class="panel">
+        <h2>Configuration</h2>
+        
+        <div class="form-group">
+          <label>Available Ports</label>
+          <select id="portsList">
+            <option>Loading ports...</option>
+          </select>
+          <small style="display: block; margin-top: 5px; color: #006600;">Select to populate POL/POD</small>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="form-group">
+          <label>Available Carriers</label>
+          <select id="carriersList">
+            <option>Loading carriers...</option>
+          </select>
+          <small style="display: block; margin-top: 5px; color: #006600;">Configured carriers for scraping</small>
+        </div>
+      </div>
+
+      <!-- Results Panel -->
+      <div class="panel results-panel">
+        <h2>Results & Export</h2>
+
+        <div id="statsContainer" class="stats-grid"></div>
+
+        <div id="resultsContainer">
+          <div class="no-data">No scrape results yet. Initialize and run a scrape.</div>
+        </div>
+
+        <div id="exportButtonsContainer" style="display: none;">
+          <div class="export-buttons">
+            <button onclick="exportPDF()">📄 Export PDF</button>
+            <button onclick="exportCSV()">📊 Export CSV</button>
+            <button onclick="exportJSON()">📋 Export JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      GSXR404 v2.0.0 · Stealth-based shipping schedule aggregator with web server deployment
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let ports = [];
+    let carriers = [];
+    let lastResults = null;
+
+    // ── Initialize ─────────────────────────────────────────────────────────
+    async function init() {
+      await loadPorts();
+      await loadCarriers();
+      checkServerStatus();
+      setInterval(checkServerStatus, 5000);
+    }
+
+    async function checkServerStatus() {
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        if (res.ok) {
+          document.getElementById('serverStatus').textContent = 'Connected';
+          const data = await res.json();
+          updateScraperStatus(data.scraperReady);
+        }
+      } catch (err) {
+        document.getElementById('serverStatus').textContent = 'Offline';
+      }
+    }
+
+    async function loadPorts() {
+      try {
+        const res = await fetch(`${API_BASE}/ports`);
+        const data = await res.json();
+        if (data.success) {
+          ports = data.ports || [];
+          populatePortsList();
+        }
+      } catch (err) {
+        showMessage('Failed to load ports', 'error');
+      }
+    }
+
+    async function loadCarriers() {
+      try {
+        const res = await fetch(`${API_BASE}/carriers`);
+        const data = await res.json();
+        if (data.success) {
+          carriers = data.carriers || [];
+          populateCarriersList();
+        }
+      } catch (err) {
+        showMessage('Failed to load carriers', 'error');
+      }
+    }
+
+    function populatePortsList() {
+      const select = document.getElementById('portsList');
+      select.innerHTML = '<option>-- Select Port --</option>' + 
+        ports.slice(0, 50).map(p => `<option>${p}</option>`).join('');
+      
+      select.onchange = (e) => {
+        const port = e.target.value;
+        if (port !== '-- Select Port --') {
+          document.getElementById('polInput').value = port;
+        }
+      };
+    }
+
+    function populateCarriersList() {
+      const select = document.getElementById('carriersList');
+      select.innerHTML = carriers.map(c => 
+        `<option>${c.displayName} - ${c.name}</option>`
+      ).join('');
+    }
+
+    // ── Autocomplete ───────────────────────────────────────────────────────
+    document.getElementById('polInput').addEventListener('input', (e) => {
+      const val = e.target.value.toLowerCase();
+      const suggestions = ports.filter(p => p.toLowerCase().includes(val)).slice(0, 5);
+      showSuggestions('polSuggestions', suggestions, 'polInput');
+    });
+
+    document.getElementById('podInput').addEventListener('input', (e) => {
+      const val = e.target.value.toLowerCase();
+      const suggestions = ports.filter(p => p.toLowerCase().includes(val)).slice(0, 5);
+      showSuggestions('podSuggestions', suggestions, 'podInput');
+    });
+
+    function showSuggestions(containerId, suggestions, inputId) {
+      const container = document.getElementById(containerId);
+      if (suggestions.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = suggestions.map(s => 
+        `<div style="padding: 5px; background-color: #001100; border: 1px solid #003300; cursor: pointer; color: #00cc00;" onclick="document.getElementById('${inputId}').value = '${s}'; document.getElementById('${containerId}').innerHTML = '';">${s}</div>`
+      ).join('');
+    }
+
+    // ── Scraper Control ────────────────────────────────────────────────────
+    async function initScraper() {
+      try {
+        showMessage('Initializing scraper...', 'info');
+        document.getElementById('initBtn').disabled = true;
+
+        const res = await fetch(`${API_BASE}/scraper/init`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          showMessage('Scraper initialized', 'success');
+          updateScraperStatus(true);
+          document.getElementById('scrapeBtn').disabled = false;
+        } else {
+          showMessage(data.error, 'error');
+        }
+      } catch (err) {
+        showMessage(err.message, 'error');
+      } finally {
+        document.getElementById('initBtn').disabled = false;
+      }
+    }
+
+    async function runScrape() {
+      const pol = document.getElementById('polInput').value.trim();
+      const pod = document.getElementById('podInput').value.trim();
+
+      if (!pol || !pod) {
+        showMessage('Please enter both POL and POD', 'error');
+        return;
+      }
+
+      try {
+        showMessage('Scraping...', 'info');
+        document.getElementById('loadingMsg').classList.add('active');
+        document.getElementById('scrapeBtn').disabled = true;
+
+        const res = await fetch(`${API_BASE}/scrape`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pol, pod }),
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          lastResults = data;
+          displayResults(data);
+          showMessage(`Scraped ${data.voyagesCount} voyages from ${data.carriersCount} carriers`, 'success');
+          document.getElementById('exportButtonsContainer').style.display = 'block';
+        } else {
+          showMessage(data.error, 'error');
+        }
+      } catch (err) {
+        showMessage(err.message, 'error');
+      } finally {
+        document.getElementById('loadingMsg').classList.remove('active');
+        document.getElementById('scrapeBtn').disabled = false;
+      }
+    }
+
+    async function closeScraper() {
+      try {
+        showMessage('Closing scraper...', 'info');
+        document.getElementById('closeBtn').disabled = true;
+
+        const res = await fetch(`${API_BASE}/scraper/close`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          showMessage('Scraper closed', 'success');
+          updateScraperStatus(false);
+        }
+      } catch (err) {
+        showMessage(err.message, 'error');
+      } finally {
+        document.getElementById('closeBtn').disabled = false;
+      }
+    }
+
+    function updateScraperStatus(ready) {
+      const indicator = document.getElementById('scraperIndicator');
+      const status = document.getElementById('scraperStatus');
+      
+      if (ready) {
+        indicator.classList.add('active');
+        status.textContent = 'Ready';
+        document.getElementById('scrapeBtn').disabled = false;
+      } else {
+        indicator.classList.remove('active');
+        status.textContent = 'Idle';
+        document.getElementById('scrapeBtn').disabled = true;
+      }
+    }
+
+    // ── Display Results ────────────────────────────────────────────────────
+    function displayResults(data) {
+      // Stats
+      const statsHtml = `
+        <div class="stat-box">
+          <div class="number">${data.voyagesCount}</div>
+          <div class="label">Voyages Found</div>
+        </div>
+        <div class="stat-box">
+          <div class="number">${data.carriersCount}</div>
+          <div class="label">Carriers</div>
+        </div>
+        <div class="stat-box">
+          <div class="number">${data.route.pol}</div>
+          <div class="label">POL</div>
+        </div>
+        <div class="stat-box">
+          <div class="number">${data.route.pod}</div>
+          <div class="label">POD</div>
+        </div>
+      `;
+      document.getElementById('statsContainer').innerHTML = statsHtml;
+
+      // Results table
+      const voyages = data.voyages || [];
+      if (voyages.length === 0) {
+        document.getElementById('resultsContainer').innerHTML = '<div class="no-data">No voyages found</div>';
+        return;
+      }
+
+      const tableHtml = `
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Carrier</th>
+                <th>Vessel</th>
+                <th>IMO</th>
+                <th>POL</th>
+                <th>POD</th>
+                <th>ETD</th>
+                <th>ETA</th>
+                <th>Transit (days)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${voyages.map(v => `
+                <tr>
+                  <td>${v.carrier || '-'}</td>
+                  <td>${v.vesselName || '-'}</td>
+                  <td>${v.imo || '-'}</td>
+                  <td>${v.pol || '-'}</td>
+                  <td>${v.pod || '-'}</td>
+                  <td>${v.etd || '-'}</td>
+                  <td>${v.eta || '-'}</td>
+                  <td>${v.transitTime || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+      document.getElementById('resultsContainer').innerHTML = tableHtml;
+    }
+
+    // ── Export Functions ───────────────────────────────────────────────────
+    async function exportPDF() {
+      try {
+        showMessage('Generating PDF...', 'info');
+        const res = await fetch(`${API_BASE}/export/pdf`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          showMessage(`PDF saved: ${data.path}`, 'success');
+          window.open(data.url, '_blank');
+        } else {
+          showMessage(data.error, 'error');
+        }
+      } catch (err) {
+        showMessage(err.message, 'error');
+      }
+    }
+
+    async function exportCSV() {
+      try {
+        showMessage('Generating CSV...', 'info');
+        const res = await fetch(`${API_BASE}/export/csv`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          showMessage(`CSV saved: ${data.path}`, 'success');
+          window.open(data.url, '_blank');
+        } else {
+          showMessage(data.error, 'error');
+        }
+      } catch (err) {
+        showMessage(err.message, 'error');
+      }
+    }
+
+    async function exportJSON() {
+      try {
+        showMessage('Generating JSON...', 'info');
+        const res = await fetch(`${API_BASE}/export/json`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          showMessage(`JSON saved: ${data.path}`, 'success');
+          window.open(data.url, '_blank');
+        } else {
+          showMessage(data.error, 'error');
+        }
+      } catch (err) {
+        showMessage(err.message, 'error');
+      }
+    }
+
+    // ── UI Helpers ─────────────────────────────────────────────────────────
+    function showMessage(text, type = 'info') {
+      const msg = document.getElementById('message');
+      msg.textContent = text;
+      msg.className = `message active ${type}`;
+      setTimeout(() => msg.classList.remove('active'), 5000);
+    }
+
+    // Initialize on load
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
